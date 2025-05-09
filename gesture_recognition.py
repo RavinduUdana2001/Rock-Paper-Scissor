@@ -24,25 +24,24 @@ class HandGesture:
                 finger_states = self.finger_status(landmarks)
                 count = sum(finger_states)
 
+                # Gesture classification
                 if count == 0:
                     gesture = "Rock"
-                elif count == 2 and finger_states[1] and finger_states[2]:
-                    dist = self.finger_distance(landmarks, 8, 12)
-                    if dist > 0.15:
-                        gesture = "Scissors"
+                elif finger_states == [False, True, True, False, False]:
+                    gesture = "Scissors"
                 elif count == 5:
                     gesture = "Paper"
-                elif count == 3 and finger_states[0] and finger_states[1] and finger_states[4]:
+                elif finger_states == [True, True, False, False, True]:
                     gesture = "Lizard"
-                elif count == 4 and finger_states[0] and not finger_states[1] and finger_states[2] and finger_states[3] and finger_states[4]:
+                elif finger_states == [True, False, True, True, True]:
                     gesture = "Spock"
 
                 self.mp_draw.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
 
+        # Buffer logic for smoothing
         self.gesture_buffer.append(gesture)
         if len(self.gesture_buffer) > self.buffer_size:
             self.gesture_buffer.pop(0)
-
         if len(self.gesture_buffer) == self.buffer_size:
             gesture = max(set(self.gesture_buffer), key=self.gesture_buffer.count)
 
@@ -52,12 +51,15 @@ class HandGesture:
         tips_ids = [4, 8, 12, 16, 20]
         fingers = []
 
-        # Thumb
-        fingers.append(landmarks[4].x < landmarks[3].x if landmarks[4].x < landmarks[3].x else landmarks[4].y < landmarks[3].y)
+        # Thumb: check if tip is to the right/left of IP joint (depending on hand orientation)
+        is_thumb_open = landmarks[4].x < landmarks[3].x if landmarks[4].x < 0.5 else landmarks[4].x > landmarks[3].x
+        fingers.append(is_thumb_open)
 
-        # Fingers
+        # Other fingers: check if tip is above PIP joint
         for i in range(1, 5):
-            fingers.append(landmarks[tips_ids[i]].y < landmarks[tips_ids[i] - 2].y)
+            tip_id = tips_ids[i]
+            pip_id = tip_id - 2
+            fingers.append(landmarks[tip_id].y < landmarks[pip_id].y)
 
         return fingers
 
